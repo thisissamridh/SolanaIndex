@@ -1,3 +1,4 @@
+// server/src/webhooks/token-prices.ts
 
 import { Pool } from 'pg';
 import { db } from '../firebaseAdmin';
@@ -28,6 +29,9 @@ interface DatabaseConnection {
     ssl: boolean;
 }
 
+// SOL mint address constant
+const SOL_MINT = 'So11111111111111111111111111111111111111112';
+
 // Global connection pools cache to reuse connections
 const connectionPools: Record<string, Pool> = {};
 
@@ -55,7 +59,7 @@ export async function processTokenPrices(
 ) {
     try {
         console.log(`Processing token price webhook ${webhookId}`);
-        console.log('Swap transaction data:', JSON.stringify(transaction).substring(0, 200) + '...');
+        console.log('Full swap transaction data:', JSON.stringify(transaction, null, 2));
 
         // Fetch webhook details
         const webhookDoc = await db.collection('webhooks').doc(webhookId).get();
@@ -129,6 +133,7 @@ function extractSwapInfo(transaction: any, tokenAddresses: string[]) {
         }
 
         const swapEvent = transaction.events.swap;
+        console.log('Swap event details:', JSON.stringify(swapEvent, null, 2));
 
         // Check if any of our tracked tokens are involved
         const inTokenAddress = swapEvent.nativeInput?.mint || swapEvent.tokenInputs?.[0]?.mint;
@@ -141,6 +146,48 @@ function extractSwapInfo(transaction: any, tokenAddresses: string[]) {
         if (!isTrackedSwap) {
             return null;
         }
+
+        // Calculate prices focusing on SOL
+        let solPrice = 0;
+        let priceLabel = '';
+
+        // Check if SOL is either the input or output token
+        if (inTokenAddress === SOL_MINT || outTokenAddress === SOL_MINT) {
+            if (inTokenAddress === SOL_MINT) {
+                // This is a SOL -> Token swap
+                const solAmount = swapEvent.nativeInput?.amount || 0;
+                const tokenAmount = swapEvent.tokenOutputs?.[0]?.amount || 0;
+                const tokenDecimals = swapEvent.tokenOutputs?.[0]?.decimals || 0;
+
+                // Price as Token per SOL
+                if (solAmount > 0) {
+                    solPrice = tokenAmount / (solAmount * Math.pow(10, tokenDecimals - 9));
+                    priceLabel = `${swapEvent.tokenOutputs?.[0]?.symbol || 'Token'}/SOL`;
+                }
+            } else {
+                // This is a Token -> SOL swap
+                const tokenAmount = swapEvent.tokenInputs?.[0]?.amount || 0;
+                const solAmount = swapEvent.nativeOutput?.amount || 0;
+                const tokenDecimals = swapEvent.tokenInputs?.[0]?.decimals || 0;
+
+                // Price as SOL per Token
+                if (tokenAmount > 0) {
+                    solPrice = solAmount / (tokenAmount * Math.pow(10, 9 - tokenDecimals));
+                    priceLabel = `SOL/${swapEvent.tokenInputs?.[0]?.symbol || 'Token'}`;
+                }
+            }
+        } else {
+            // Neither token is SOL - calculate regular price
+            solPrice = calculatePrice(
+                swapEvent.nativeInput?.amount || swapEvent.tokenInputs?.[0]?.amount || 0,
+                swapEvent.nativeOutput?.amount || swapEvent.tokenOutputs?.[0]?.amount || 0,
+                swapEvent.nativeInput?.decimals || swapEvent.tokenInputs?.[0]?.decimals || 0,
+                swapEvent.nativeOutput?.decimals || swapEvent.tokenOutputs?.[0]?.decimals || 0
+            );
+            priceLabel = `${swapEvent.tokenOutputs?.[0]?.symbol || 'Out'}/${swapEvent.tokenInputs?.[0]?.symbol || 'In'}`;
+        }
+
+        console.log(`Calculated price: ${solPrice} ${priceLabel}`);
 
         // Extract swap details
         return {
@@ -159,12 +206,8 @@ function extractSwapInfo(transaction: any, tokenAddresses: string[]) {
                 decimals: swapEvent.nativeOutput?.decimals || swapEvent.tokenOutputs?.[0]?.decimals || 0
             },
             amm: swapEvent.source || 'unknown',
-            price: calculatePrice(
-                swapEvent.nativeInput?.amount || swapEvent.tokenInputs?.[0]?.amount || 0,
-                swapEvent.nativeOutput?.amount || swapEvent.tokenOutputs?.[0]?.amount || 0,
-                swapEvent.nativeInput?.decimals || swapEvent.tokenInputs?.[0]?.decimals || 0,
-                swapEvent.nativeOutput?.decimals || swapEvent.tokenOutputs?.[0]?.decimals || 0
-            )
+            price: solPrice,
+            priceLabel: priceLabel
         };
     } catch (error) {
         console.error('Error extracting swap information:', error);
@@ -241,70 +284,50 @@ async function storeTokenPriceData(
         client = await pool.connect();
         console.log(`Connected to database successfully`);
 
-        // Check if table exists
-        const tableExists = await client.query(`
-            SELECT EXISTS (
-                SELECT FROM pg_tables
-                WHERE schemaname = 'public'
-                AND tablename = $1
+        // Force drop the table to ensure it has the correct schema
+        console.log(`Force dropping table ${tableName} to recreate with correct schema...`);
+        await client.query(`DROP TABLE IF EXISTS ${tableName} CASCADE`);
+        console.log(`Dropped table ${tableName}`);
+
+        // Create the table with the correct schema
+        console.log(`Creating new table ${tableName}`);
+        await client.query(`
+            CREATE TABLE ${tableName} (
+                id SERIAL PRIMARY KEY,
+                timestamp TIMESTAMP NOT NULL,
+                signature TEXT,
+                in_token_mint TEXT NOT NULL,
+                in_token_amount NUMERIC NOT NULL,
+                in_token_symbol TEXT,
+                out_token_mint TEXT NOT NULL,
+                out_token_amount NUMERIC NOT NULL,
+                out_token_symbol TEXT,
+                price NUMERIC NOT NULL,
+                price_label TEXT,
+                amm TEXT,
+                raw_data JSONB NOT NULL,
+                created_at TIMESTAMP DEFAULT NOW()
             )
-        `, [tableName.toLowerCase()]);
+        `);
 
-        // If table doesn't exist, create it
-        if (!tableExists.rows[0].exists) {
-            console.log(`Table ${tableName} doesn't exist, creating it...`);
+        // Create indexes
+        console.log(`Creating indexes for table ${tableName}`);
+        await client.query(`
+            CREATE INDEX ${tableName}_timestamp_idx 
+            ON ${tableName}(timestamp)
+        `);
 
-            // Create the table
-            await client.query(`
-                CREATE TABLE ${tableName} (
-                    id SERIAL PRIMARY KEY,
-                    timestamp TIMESTAMP NOT NULL,
-                    signature TEXT,
-                    in_token_mint TEXT NOT NULL,
-                    in_token_amount NUMERIC NOT NULL,
-                    in_token_symbol TEXT,
-                    out_token_mint TEXT NOT NULL,
-                    out_token_amount NUMERIC NOT NULL,
-                    out_token_symbol TEXT,
-                    price NUMERIC NOT NULL,
-                    amm TEXT,
-                    raw_data JSONB NOT NULL,
-                    created_at TIMESTAMP DEFAULT NOW()
-                )
-            `);
+        await client.query(`
+            CREATE INDEX ${tableName}_in_token_idx 
+            ON ${tableName}(in_token_mint)
+        `);
 
-            // Create indexes
-            console.log(`Creating indexes for table ${tableName}`);
-            await client.query(`
-                CREATE INDEX ${tableName}_timestamp_idx 
-                ON ${tableName}(timestamp)
-            `);
+        await client.query(`
+            CREATE INDEX ${tableName}_out_token_idx 
+            ON ${tableName}(out_token_mint)
+        `);
 
-            await client.query(`
-                CREATE INDEX ${tableName}_in_token_idx 
-                ON ${tableName}(in_token_mint)
-            `);
-
-            await client.query(`
-                CREATE INDEX ${tableName}_out_token_idx 
-                ON ${tableName}(out_token_mint)
-            `);
-
-            console.log(`Successfully created table ${tableName}`);
-        }
-
-        // Check if this transaction's signature already exists in the database
-        const signatureExists = await client.query(`
-            SELECT EXISTS (
-                SELECT 1 FROM ${tableName}
-                WHERE signature = $1
-            )
-        `, [swapInfo.signature]);
-
-        if (signatureExists.rows[0].exists) {
-            console.log(`Transaction ${swapInfo.signature} already exists in the database, skipping`);
-            return;
-        }
+        console.log(`Successfully created table ${tableName}`);
 
         // Insert data
         console.log(`Inserting token price data into ${tableName}`);
@@ -319,9 +342,10 @@ async function storeTokenPriceData(
                 out_token_amount,
                 out_token_symbol,
                 price,
+                price_label,
                 amm,
                 raw_data
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         `, [
             swapInfo.timestamp,
             swapInfo.signature,
@@ -332,6 +356,7 @@ async function storeTokenPriceData(
             swapInfo.outToken.amount,
             swapInfo.outToken.symbol,
             swapInfo.price,
+            swapInfo.priceLabel,
             swapInfo.amm,
             JSON.stringify({
                 transaction: transaction,
