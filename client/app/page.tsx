@@ -16,28 +16,28 @@ export default function LandingPage() {
         <nav className="ml-auto flex gap-4 sm:gap-6">
           <Link
             className="text-sm font-medium text-gray-300 hover:text-green-400 hover:underline underline-offset-4"
-            href="#"
+            href="#txk"
           >
             Features
           </Link>
-          <Link
+          {/* <Link
             className="text-sm font-medium text-gray-300 hover:text-green-400 hover:underline underline-offset-4"
             href="#"
           >
             Pricing
-          </Link>
+          </Link> */}
           <Link
             className="text-sm font-medium text-gray-300 hover:text-green-400 hover:underline underline-offset-4"
-            href="#"
+            href="/documentation"
           >
             Documentation
           </Link>
-          <Link
+          {/* <Link
             className="text-sm font-medium text-gray-300 hover:text-green-400 hover:underline underline-offset-4"
             href="#"
           >
             Blog
-          </Link>
+          </Link> */}
         </nav>
         <div className="ml-4 flex items-center gap-2">
           <Link href="/login">
@@ -53,7 +53,7 @@ export default function LandingPage() {
         </div>
       </header>
       <main className="flex-1">
-        <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48 bg-gradient-to-b from-black to-green-950">
+        <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48 bg-black">
           <div className="container px-4 md:px-6 mx-auto max-w-screen-xl">
             <div className="grid gap-6 lg:grid-cols-[1fr_400px] lg:gap-12 xl:grid-cols-[1fr_600px]">
               <div className="flex flex-col justify-center space-y-4">
@@ -85,28 +85,14 @@ export default function LandingPage() {
                 </div>
               </div>
               <div className="flex items-center justify-center">
-                <div className="relative w-full h-[350px] lg:h-[450px] bg-gradient-to-br from-green-900/30 to-green-700/10 rounded-lg overflow-hidden border border-green-900/50">
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-3/4 h-3/4 bg-black/80 backdrop-blur-sm rounded-lg shadow-lg p-6 flex flex-col gap-4 border border-green-900/50">
-                      <div className="flex items-center gap-2 text-green-500 font-medium">
-                        <Database className="h-5 w-5" />
-                        <span>Connect Your Postgres Database</span>
-                      </div>
-                      <div className="flex-1 bg-gray-900 rounded-md p-3 text-xs font-mono overflow-hidden text-green-300 border border-green-900/50">
-                        {`// Sample webhook configuration
-{
-  "webhook_url": "https://solanaindex.io/webhook/user123",
-  "account_addresses": ["8JUjWjn6vxXQmeqG5sFrZFTWR6LLQvAKBcQ7BV2cCvBB"],
-  "transaction_types": ["SOL_TRANSFER", "TOKEN_TRANSFER"],
-  "db_table": "solana_transactions"
-}`}
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-400">Data flows automatically to your database</span>
-                        <div className="h-2 w-24 bg-gray-800 rounded-full overflow-hidden">
-                          <div className="h-full w-3/4 bg-green-500 rounded-full"></div>
-                        </div>
-                      </div>
+                <div className="relative w-full h-[250px] sm:h-[300px] md:h-[350px] lg:h-[450px] bg-gradient-to-br from-green-900/30 to-green-700/10 rounded-lg overflow-hidden border border-green-900/50">
+                  <div className="absolute inset-0 flex items-center justify-center p-4">
+                    <div className="w-full sm:w-4/5 md:w-3/4 h-full sm:h-4/5 md:h-3/4 bg-black/80 backdrop-blur-sm rounded-lg shadow-lg flex items-center justify-center border border-green-900/50">
+                      <img
+                        src="/ff.png"
+                        alt="Database Connection"
+                        className="rounded-lg max-w-[200px] sm:max-w-[250px] md:max-w-[300px] lg:max-w-[400px] h-auto object-contain p-2 sm:p-4"
+                      />
                     </div>
                   </div>
                 </div>
@@ -116,7 +102,7 @@ export default function LandingPage() {
         </section>
 
         {/* Other sections with proper container classes */}
-        <section className="w-full py-12 md:py-24 lg:py-32 bg-green-950">
+        <section className="w-full py-12 md:py-24 lg:py-32 bg-black">
           <div className="container px-4 md:px-6 mx-auto max-w-screen-xl">
             <div className="flex flex-col items-center justify-center space-y-4 text-center">
               <div className="space-y-2">
@@ -169,8 +155,8 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Remaining sections with proper container classes */}
-        <section className="w-full py-12 md:py-24 lg:py-32 bg-black">
+
+        <section id="txk" className="w-full py-12 md:py-24 lg:py-32 bg-black">
           <div className="container px-4 md:px-6 mx-auto max-w-screen-xl">
             <div className="flex flex-col items-center justify-center space-y-4 text-center">
               <div className="space-y-2">
@@ -219,7 +205,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="w-full py-12 md:py-24 lg:py-32 bg-green-950">
+        <section className="w-full py-12 md:py-24 lg:py-32 bg-black">
           <div className="container px-4 md:px-6 mx-auto max-w-screen-xl">
             <div className="flex flex-col items-center justify-center space-y-4 text-center">
               <div className="space-y-2">
@@ -247,7 +233,7 @@ export default function LandingPage() {
           </div>
         </section>
       </main>
-      <footer className="flex flex-col gap-2 sm:flex-row py-6 w-full shrink-0 items-center px-4 md:px-6 border-t border-green-900/20 bg-black">
+      <footer className="flex flex-col gap-2 sm:flex-row py-6 w-full shrink-0 items-center px-4 md:px-6 border-t border-green-900/20 bg-gradient-to-b from-black to-green-950 ">
         <div className="container mx-auto max-w-screen-2xl flex flex-col sm:flex-row w-full justify-between items-center">
           <p className="text-xs text-gray-500">© {new Date().getFullYear()} SolanaIndex. All rights reserved.</p>
           <nav className="sm:ml-auto flex gap-4 sm:gap-6">

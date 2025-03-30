@@ -385,7 +385,7 @@ export default function DashboardPage() {
                     <div>
                       <CardTitle>Your Webhooks</CardTitle>
                       <CardDescription>
-                        {webhooks.length === 0
+                        {webhooks.length >= 0
                           ? "Create your first webhook to start indexing Solana data"
                           : "Manage your Solana data webhooks"}
                       </CardDescription>
@@ -406,7 +406,7 @@ export default function DashboardPage() {
                   </CardContent>
                 </Card>
 
-                {webhooks.length === 0 && !isLoading && (
+                {webhooks.length >= 0 && !isLoading && (
                   <Card>
                     <CardHeader>
                       <CardTitle>Create Your First Webhook</CardTitle>

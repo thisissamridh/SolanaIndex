@@ -113,12 +113,10 @@ export async function updateWebhook(webhookId: string, webhookData: any) {
 
 export async function deleteWebhook(webhookId: string) {
     try {
-
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
         const response = await fetch(`${backendUrl}/webhook/${webhookId}`, {
             method: 'DELETE',
         });
-
         if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.error || 'Failed to delete webhook');
