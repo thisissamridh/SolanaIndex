@@ -21,7 +21,7 @@ app.use((req, res, next) => {
 
 
 app.use(cors({
-    origin: ['http://localhost:3000', 'http://3.91.248.79:3000', 'http://localhost:3001', 'http://3.91.248.79:3001', process.env.CLIENT_URL || '*'],
+    origin: '*',
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
