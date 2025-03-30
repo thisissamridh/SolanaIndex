@@ -1,4 +1,3 @@
-// server/src/webhooks/token-prices.ts
 
 import { Pool } from 'pg';
 import { db } from '../firebaseAdmin';
@@ -12,7 +11,8 @@ interface WebhookData {
     databaseName: string;
     webhookType: string;
     tableName: string;
-    tokenAddresses: string[]; // Token mint addresses to track
+    accountAddresses?: string[]; // Used for token addresses to track
+    programIds?: string[]; // Used for program invocation tracking
     status: string;
     dataPoints?: number;
 }
@@ -77,14 +77,23 @@ export async function processTokenPrices(
             return;
         }
 
+        // Get the token addresses to track from accountAddresses
+        const tokenAddressesToTrack = webhookData.accountAddresses || [];
+
+        if (tokenAddressesToTrack.length === 0) {
+            console.log(`No token addresses configured for webhook ${webhookId}, skipping`);
+            return;
+        }
+
         // Extract swap information
-        const swapInfo = extractSwapInfo(transaction, webhookData.tokenAddresses);
+        const swapInfo = extractSwapInfo(transaction, tokenAddressesToTrack);
         if (!swapInfo) {
             console.log(`No relevant swap information found for tracked tokens in transaction ${transaction.signature}`);
             return;
         }
 
-        console.log(`Swap information extracted:`, swapInfo);
+        console.log(`Swap information extracted for tokens:`, tokenAddressesToTrack);
+        console.log(`Swap details:`, swapInfo);
 
         // Get database connection details
         const dbDoc = await db.collection('databases').doc(webhookData.databaseId).get();
@@ -241,49 +250,61 @@ async function storeTokenPriceData(
             )
         `, [tableName.toLowerCase()]);
 
-        // If table exists, drop it
-        if (tableExists.rows[0].exists) {
-            console.log(`Table ${tableName} exists, dropping it...`);
-            await client.query(`DROP TABLE IF EXISTS ${tableName} CASCADE`);
-            console.log(`Dropped table ${tableName}`);
+        // If table doesn't exist, create it
+        if (!tableExists.rows[0].exists) {
+            console.log(`Table ${tableName} doesn't exist, creating it...`);
+
+            // Create the table
+            await client.query(`
+                CREATE TABLE ${tableName} (
+                    id SERIAL PRIMARY KEY,
+                    timestamp TIMESTAMP NOT NULL,
+                    signature TEXT,
+                    in_token_mint TEXT NOT NULL,
+                    in_token_amount NUMERIC NOT NULL,
+                    in_token_symbol TEXT,
+                    out_token_mint TEXT NOT NULL,
+                    out_token_amount NUMERIC NOT NULL,
+                    out_token_symbol TEXT,
+                    price NUMERIC NOT NULL,
+                    amm TEXT,
+                    raw_data JSONB NOT NULL,
+                    created_at TIMESTAMP DEFAULT NOW()
+                )
+            `);
+
+            // Create indexes
+            console.log(`Creating indexes for table ${tableName}`);
+            await client.query(`
+                CREATE INDEX ${tableName}_timestamp_idx 
+                ON ${tableName}(timestamp)
+            `);
+
+            await client.query(`
+                CREATE INDEX ${tableName}_in_token_idx 
+                ON ${tableName}(in_token_mint)
+            `);
+
+            await client.query(`
+                CREATE INDEX ${tableName}_out_token_idx 
+                ON ${tableName}(out_token_mint)
+            `);
+
+            console.log(`Successfully created table ${tableName}`);
         }
 
-        // Create a new table with the same name
-        console.log(`Creating new table ${tableName}`);
-        await client.query(`
-            CREATE TABLE ${tableName} (
-                id SERIAL PRIMARY KEY,
-                timestamp TIMESTAMP NOT NULL,
-                signature TEXT,
-                in_token_mint TEXT NOT NULL,
-                in_token_amount NUMERIC NOT NULL,
-                in_token_symbol TEXT,
-                out_token_mint TEXT NOT NULL,
-                out_token_amount NUMERIC NOT NULL,
-                out_token_symbol TEXT,
-                price NUMERIC NOT NULL,
-                amm TEXT,
-                raw_data JSONB NOT NULL,
-                created_at TIMESTAMP DEFAULT NOW()
+        // Check if this transaction's signature already exists in the database
+        const signatureExists = await client.query(`
+            SELECT EXISTS (
+                SELECT 1 FROM ${tableName}
+                WHERE signature = $1
             )
-        `);
+        `, [swapInfo.signature]);
 
-        // Create indexes
-        console.log(`Creating indexes for table ${tableName}`);
-        await client.query(`
-            CREATE INDEX ${tableName}_timestamp_idx 
-            ON ${tableName}(timestamp)
-        `);
-
-        await client.query(`
-            CREATE INDEX ${tableName}_in_token_idx 
-            ON ${tableName}(in_token_mint)
-        `);
-
-        await client.query(`
-            CREATE INDEX ${tableName}_out_token_idx 
-            ON ${tableName}(out_token_mint)
-        `);
+        if (signatureExists.rows[0].exists) {
+            console.log(`Transaction ${swapInfo.signature} already exists in the database, skipping`);
+            return;
+        }
 
         // Insert data
         console.log(`Inserting token price data into ${tableName}`);
