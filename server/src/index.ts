@@ -118,7 +118,7 @@ app.post('/test-connection', async (req, res) => {
 
 
 app.post('/register-helius-webhook', async (req, res) => {
-    const { webhookId, programIds, accountAddresses } = req.body;
+    const { webhookId, programIds, accountAddresses, webhookType } = req.body;
 
     if (!webhookId) {
         return res.status(400).json({ error: 'Missing webhookId' });
@@ -151,16 +151,28 @@ app.post('/register-helius-webhook', async (req, res) => {
         }
 
         const webhookUrl = `${process.env.SERVER_URL || 'http://localhost:3001'}/webhook/helius/${webhookId}`;
+        const effectiveWebhookType = webhookType || webhookData.webhookType;
+        let transactionTypes;
+        if (effectiveWebhookType === "token_prices") {
+            transactionTypes = ["SWAP"];
+            console.log("Setting transaction type to SWAP for token_prices webhook");
+        } else if (effectiveWebhookType === "program_invocation") {
+            transactionTypes = ["ANY"];
+            console.log("Setting transaction type to ANY for program_invocation webhook");
+        } else {
+            // Default case
+            transactionTypes = ["ANY"];
+            console.log(`Using default transaction type ANY for webhook type: ${effectiveWebhookType}`);
+        }
 
         const registrationData = {
             webhookURL: webhookUrl,
-            transactionTypes: ["ANY"],
+            transactionTypes: transactionTypes,
             accountAddresses: accountAddresses || [],
-            webhookType: "enhanced",
+            webhookType: "enhanced", // This is Helius's webhook type, not our application's
             txnStatus: "success",
             authHeader: process.env.WEBHOOK_AUTH_HEADER || "x-helius-token"
         };
-
         if (programIds && programIds.length > 0) {
             registrationData.accountAddresses = [
                 ...registrationData.accountAddresses,

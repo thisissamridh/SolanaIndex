@@ -36,6 +36,12 @@ const INDEXER_TYPES = [
         description: "Track when specific Solana programs are invoked in transactions"
     },
     {
+        id: "token_prices",
+        name: "Token Prices",
+        description: "Track token prices across platforms",
+        // comingSoon: true
+    },
+    {
         id: "nft_bids",
         name: "NFT Bids",
         description: "Track current bids on NFTs",
@@ -53,12 +59,6 @@ const INDEXER_TYPES = [
         description: "Track available tokens to borrow",
         comingSoon: true
     },
-    {
-        id: "token_prices",
-        name: "Token Prices",
-        description: "Track token prices across platforms",
-        comingSoon: true
-    }
 ]
 
 interface CreateWebhookFormProps {
@@ -72,7 +72,7 @@ export function CreateWebhookForm({ onSuccess }: CreateWebhookFormProps) {
     const [success, setSuccess] = useState("");
     const [databases, setDatabases] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
-    const [selectedIndexerType, setSelectedIndexerType] = useState("program_invocation");
+    const [selectedIndexerType, setSelectedIndexerType] = useState("ANY");
     const [progressStatus, setProgressStatus] = useState("");
 
     // Form data
@@ -113,11 +113,11 @@ export function CreateWebhookForm({ onSuccess }: CreateWebhookFormProps) {
         setFormData(prev => ({ ...prev, [id]: value }));
     };
 
-    const registerHeliusWebhook = async (webhookId: string, programIds: string[], accountAddresses: string[]) => {
+    const registerHeliusWebhook = async (webhookId: string, programIds: string[], accountAddresses: string[], webhookType: string) => {
         setProgressStatus("Registering webhook with Helius...");
 
         try {
-            // Call our backend endpoint to register with Helius
+
             const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
             const response = await fetch(`${backendUrl}/register-helius-webhook`, {
                 method: 'POST',
@@ -130,7 +130,8 @@ export function CreateWebhookForm({ onSuccess }: CreateWebhookFormProps) {
                         "ANY"
                     ],
                     programIds,
-                    accountAddresses
+                    accountAddresses,
+                    webhookType
                 })
             });
 
@@ -207,7 +208,7 @@ export function CreateWebhookForm({ onSuccess }: CreateWebhookFormProps) {
 
             // Step 2: Register the webhook with Helius
             try {
-                await registerHeliusWebhook(webhookId, programIdsArray, accountAddressesArray);
+                await registerHeliusWebhook(webhookId, programIdsArray, accountAddressesArray, selectedIndexerType);
 
                 setSuccess("Webhook created and registered with Helius successfully!");
             } catch (heliusError: any) {
@@ -387,6 +388,38 @@ Example: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
                         />
                         <p className="text-xs text-muted-foreground">
                             If provided, only track program invocations related to these accounts
+                        </p>
+                    </div>
+                </div>
+            )}
+            {selectedIndexerType === "token_prices" && (
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="tableName">Table Name</Label>
+                        <Input
+                            id="tableName"
+                            placeholder="token_prices"
+                            value={formData.tableName}
+                            onChange={handleInputChange}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            Name of the table where price data will be stored. Leave empty to use default.
+                        </p>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="tokenAddresses">Token Addresses to Track</Label>
+                        <Textarea
+                            id="accountAddresses"
+                            placeholder="Enter Solana token mint addresses to track (one per line)
+Example: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+                            value={formData.accountAddresses}
+                            onChange={handleInputChange}
+                            className="min-h-[100px] font-mono text-sm"
+                            required
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            Enter Solana token mint addresses to track price data for (one per line)
                         </p>
                     </div>
                 </div>

@@ -148,9 +148,9 @@ export function WebhooksList({
                     <Edit className="mr-2 h-4 w-4" />
                     Edit
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
+                  <DropdownMenuItem disabled={true}>
                     <Activity className="mr-2 h-4 w-4" />
-                    View Logs
+                    View Logs (coming soon)
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     className="text-destructive"

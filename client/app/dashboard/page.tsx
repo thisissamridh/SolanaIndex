@@ -368,10 +368,10 @@ export default function DashboardPage() {
                         <Button
                           className="w-full justify-start"
                           variant="outline"
-                          disabled={webhooks.length === 0}
+                          disabled={true}
                         >
                           <Activity className="mr-2 h-4 w-4" />
-                          View Logs
+                          View Logs (coming soon)
                         </Button>
                       </div>
                     </CardContent>

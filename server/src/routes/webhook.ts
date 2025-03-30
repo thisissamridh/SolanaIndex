@@ -3,6 +3,7 @@
 import express from 'express';
 import admin, { db } from '../firebaseAdmin';
 import { processProgramInvocation } from '../webhooks/program-invocation';
+import { processTokenPrices } from '../webhooks/token-prices';
 
 const router = express.Router();
 
@@ -40,6 +41,8 @@ router.post('/helius/:webhookId', async (req, res) => {
             try {
                 if (webhookData?.webhookType === 'program_invocation') {
                     await processProgramInvocation(webhookId, transaction);
+                } else if (webhookData?.webhookType === 'token_prices') {
+                    await processTokenPrices(webhookId, transaction)
                 } else {
                     console.log(`Unsupported webhook type: ${webhookData?.webhookType}`);
                 }
